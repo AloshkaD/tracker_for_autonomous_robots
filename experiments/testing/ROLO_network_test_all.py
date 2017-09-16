@@ -238,7 +238,7 @@ class ROLO_TF:
                 print ("Default: running ROLO test.")
                 self.build_networks()
 
-                evaluate_st = 0
+                evaluate_st = 1
                 evaluate_ed = 29
 
                 for test in range(evaluate_st, evaluate_ed + 1):
@@ -263,7 +263,8 @@ class ROLO_TF:
                     #self.rolo_weights_file= '/u03/Guanghan/dev/ROLO-dev/output/ROLO_model/model_step9_exp2.ckpt'
                     #self.rolo_weights_file= '/u03/Guanghan/dev/ROLO-dev/output/ROLO_model/model_step1_exp2.ckpt'
 
-                    self.rolo_weights_file= '/u03/Guanghan/dev/ROLO-dev/output/ROLO_model/model_step3_exp1_old.ckpt'
+                    #self.rolo_weights_file= '/home/a/SDC/defence/weights/model_step3_exp2.ckpt'
+                    self.rolo_weights_file= '/home/a/SDC/defence/weights/model_demo.ckpt'
 
                     self.num_steps = 3  # number of frames as an input sequence
                     print("TESTING ROLO on video sequence: ", sequence_name)

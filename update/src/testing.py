@@ -1,3 +1,9 @@
+
+import sys
+# Imports
+path_to_utils = '/home/a/SDC/defence/ROLO/update/utils'
+sys.path.extend([path_to_utils])
+#import ROLO_utils as utils
 from utils_dataset import *
 from utils_draw_coord import debug_decimal_coord
 from utils_io_folder import *
@@ -14,7 +20,7 @@ def test(self, sess, loss, batch_pred_coords):
     print("\n\n\n--------------------------------------------TESTING OTB-50---------------------------------------------------------\n")
     num_videos = 50
     loss_dataset_total = 0
-    OTB_folder_path = "/home/ngh/dev/ROLO-dev/benchmark/DATA/"
+    OTB_folder_path = "/home/a/SDC/defence/ROLO/benchmark/DATA/"
 
     for video_id in range(num_videos):
         if video_id in [1, 5, 16, 20, 21, 22, 23, 28, 30, 32, 36, 42, 43, 46]: continue
@@ -22,7 +28,7 @@ def test(self, sess, loss, batch_pred_coords):
         [img_wid, img_ht, sequence_name, st_frame, self.training_iters] = choose_video_sequence_from_OTB50(video_id)
         print('testing sequence: ', sequence_name)
 
-        x_path = os.path.join(OTB_folder_path, sequence_name, 'yolo_out/')
+        x_path = os.path.join(OTB_folder_path, sequence_name, '/home/a/SDC/defence/yolo_output/')
         y_path = os.path.join(OTB_folder_path, sequence_name, 'groundtruth_rect.txt')
         self.output_path = os.path.join(OTB_folder_path, sequence_name, 'rolo_loc_test/')
         create_folder(self.output_path)
@@ -89,7 +95,7 @@ def test(self, sess, loss, batch_pred_coords):
             frame_id += 1
 
         loss_seq_avg = loss_seq_total / frame_id
-        print "Avg loss for " + sequence_name + ": " + str(loss_seq_avg)
+        print( "Avg loss for " + sequence_name + ": " + str(loss_seq_avg))
         loss_dataset_total += loss_seq_avg
 
     print('Total loss of Dataset: %f \n', loss_dataset_total)

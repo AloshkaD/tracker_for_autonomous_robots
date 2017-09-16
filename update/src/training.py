@@ -1,5 +1,8 @@
 import sys, os
 sys.path.append(os.path.abspath("../utils/"))
+
+#path_to_utils = '/home/a/SDC/defence/ROLO/update/utils'
+#sys.path.extend([path_to_utils])
 import time, random
 
 from utils_io_coord import *

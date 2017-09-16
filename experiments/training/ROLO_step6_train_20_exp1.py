@@ -24,18 +24,22 @@ Description:
 '''
 
 # Imports
+import sys, os
+path_to_utils = '/home/a/SDC/defence/ROLO/utils'
+sys.path.extend([path_to_utils])
 import ROLO_utils as utils
 
 import tensorflow as tf
-from tensorflow.models.rnn import rnn, rnn_cell
+#from tensorflow.models.rnn import rnn, rnn_cell
+from tensorflow.contrib import rnn
+#from tensorflow.python.ops.nn import rnn_cell
 import cv2
 
 import numpy as np
 import os.path
 import time
 import random
-
-
+ 
 class ROLO_TF:
     disp_console = False
     restore_weights = True#False
@@ -47,7 +51,7 @@ class ROLO_TF:
     imshow = True
     filewrite_img = False
     filewrite_txt = False
-    yolo_weights_file = 'weights/YOLO_small.ckpt'
+    yolo_weights_file = '/home/a/SDC/defence/weights/YOLO_small.ckpt'
     alpha = 0.1
     threshold = 0.2
     iou_threshold = 0.5
@@ -58,7 +62,7 @@ class ROLO_TF:
     w_img, h_img = [352, 240]
 
     # ROLO Network Parameters
-    rolo_weights_file = '/u03/Guanghan/dev/ROLO-dev/output/ROLO_model/model_step6_exp1.ckpt' 
+    rolo_weights_file = '/home/a/SDC/defence/weights/model_step6_exp1.ckpt' 
     lstm_depth = 3
     num_steps = 6  # number of frames as an input sequence
     num_feat = 4096
@@ -81,10 +85,10 @@ class ROLO_TF:
 
     # Define weights
     weights = {
-        'out': tf.Variable(tf.random_normal([num_input, num_predict]))
+        'out': tf.variable_scope(tf.random_normal([num_input, num_predict]))
     }
     biases = {
-        'out': tf.Variable(tf.random_normal([num_predict]))
+        'out': tf.variable_scope(tf.random_normal([num_predict]))
     }
 
 
@@ -94,23 +98,32 @@ class ROLO_TF:
 
 
     def LSTM_single(self, name,  _X, _istate, _weights, _biases):
-
-        # input shape: (batch_size, n_steps, n_input)
+        #with tf.device('/gpu:0'):
+            # input shape: (batch_size, n_steps, n_input)
+        print('name',name)
+        print('_X',_X)
+        print('_istate',_istate)
+        print('_weights',_weights)
+        print('_biases',_biases)
         _X = tf.transpose(_X, [1, 0, 2])  # permute num_steps and batch_size
-        # Reshape to prepare input to hidden activation
+            # Reshape to prepare input to hidden activation
         _X = tf.reshape(_X, [self.num_steps * self.batch_size, self.num_input]) # (num_steps*batch_size, num_input)
-        # Split data because rnn cell needs a list of inputs for the RNN inner loop
-        _X = tf.split(0, self.num_steps, _X) # n_steps * (batch_size, num_input)
-        #print("_X: ", _X)
-
-        cell = tf.nn.rnn_cell.LSTMCell(self.num_input, self.num_input)
+            # Split data because rnn cell needs a list of inputs for the RNN inner loop
+            #_X = tf.split(0, self.num_steps, _X) # n_steps * (batch_size, num_input)
+        _X = tf.split(_X, self.num_steps , 0) # n_steps * (batch_size, num_input)
+            
+        #cell = tf.nn.rnn_cell.LSTMCell(self.num_input, self.num_input)
+        cell = tf.contrib.rnn.BasicLSTMCell(self.num_input, state_is_tuple=False)
+        #cell = tf.contrib.rnn.LSTMCell(self.num_input)
+        #print(_X.shape)
         state = _istate
-        for step in range(self.num_steps):
-            outputs, state = tf.nn.rnn(cell, [_X[step]], state)
-            tf.get_variable_scope().reuse_variables()
 
-        #print("output: ", outputs)
-        #print("state: ", state)
+       
+        for step in range(self.num_steps):
+            #outputs, state = tf.nn.rnn(cell, [_X[step]], state)
+            outputs, state = tf.contrib.rnn.static_rnn(cell, [_X [step] ], state, dtype=tf.float32)
+            tf.get_variable_scope().reuse_variables()
+            #if step == 0:    = state
         return outputs
 
 
@@ -126,16 +139,18 @@ class ROLO_TF:
 
     '''---------------------------------------------------------------------------------------'''
     def build_networks(self):
-        if self.disp_console : print "Building ROLO graph..."
+        if self.disp_console : print ("Building ROLO graph...")
 
         # Build rolo layers
         self.lstm_module = self.LSTM_single('lstm_test', self.x, self.istate, self.weights, self.biases)
-        self.ious= tf.Variable(tf.zeros([self.batch_size]), name="ious")
+        #self.ious= tf.Variable(tf.zeros([self.batch_size]), name="ious")
+        self.ious= tf.variable_scope(tf.zeros([self.batch_size]))
         self.sess = tf.Session()
-        self.sess.run(tf.initialize_all_variables())
+        #self.sess.run(tf.initialize_all_variables())
+        self.sess.run(tf.global_variables_initializer())
         self.saver = tf.train.Saver()
         #self.saver.restore(self.sess, self.rolo_weights_file)
-        if self.disp_console : print "Loading complete!" + '\n'
+        if self.disp_console : print ("Loading complete!" + '\n')
 
 
     def training(self, x_path, y_path):
@@ -143,6 +158,11 @@ class ROLO_TF:
 
         if self.disp_console: print("TRAINING ROLO...")
         # Use rolo_input for LSTM training
+        print('self.x',self.x)
+        print('self.istate',self.istate)
+        print('self.weights',self.weights)
+        print('self.biases',self.biases)
+
         pred = self.LSTM_single('lstm_train', self.x, self.istate, self.weights, self.biases)
         if self.disp_console: print("pred: ", pred)
         self.pred_location = pred[0][:, 4097:4101]
@@ -156,15 +176,15 @@ class ROLO_TF:
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.accuracy) # Adam Optimizer
 
         # Initializing the variables
-        init = tf.initialize_all_variables()
-
+        #init = tf.initialize_all_variables()
+        init = tf.global_variables_initializer()
         # Launch the graph
         with tf.Session() as sess:
 
             if (self.restore_weights == True):
                 sess.run(init)
                 self.saver.restore(sess, self.rolo_weights_file)
-                print "Loading complete!" + '\n'
+                print ("Loading complete!" + '\n')
             else:
                 sess.run(init)
 
@@ -198,16 +218,16 @@ class ROLO_TF:
                 if id % self.display_step == 0:
                     # Calculate batch loss
                     loss = sess.run(self.accuracy, feed_dict={self.x: batch_xs, self.y: batch_ys, self.istate: np.zeros((self.batch_size, 2*self.num_input))})
-                    if self.disp_console: print "Iter " + str(id*self.batch_size) + ", Minibatch Loss= " + "{:.6f}".format(loss) #+ "{:.5f}".format(self.accuracy)
+                    if self.disp_console: print ("Iter " + str(id*self.batch_size) + ", Minibatch Loss= " + "{:.6f}".format(loss) )#+ "{:.5f}".format(self.accuracy)
                     total_loss += loss
                 id += 1
                 if self.disp_console: print(id)
 
                 # show 3 kinds of locations, compare!
 
-            print "Optimization Finished!"
+            print ("Optimization Finished!")
             avg_loss = total_loss/id
-            print "Avg loss: " + str(avg_loss)
+            print ("Avg loss: " + str(avg_loss))
             save_path = self.saver.save(sess, self.rolo_weights_file)
             print("Model saved in file: %s" % save_path)
 
@@ -232,14 +252,14 @@ class ROLO_TF:
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.accuracy) # Adam Optimizer
 
         # Initializing the variables
-        init = tf.initialize_all_variables()
-
+        #init = tf.initialize_all_variables()
+        init = tf.global_variables_initializer()
         # Launch the graph
         with tf.Session() as sess:
             if (self.restore_weights == True):
                 sess.run(init)
                 self.saver.restore(sess, self.rolo_weights_file)
-                print "Loading complete!" + '\n'
+                print ("Loading complete!" + '\n')
             else:
                 sess.run(init)
 
@@ -285,14 +305,14 @@ class ROLO_TF:
                     if id % self.display_step == 0:
                         # Calculate batch loss
                         loss = sess.run(self.accuracy, feed_dict={self.x: batch_xs, self.y: batch_ys, self.istate: np.zeros((self.batch_size, 2*self.num_input))})
-                        if self.disp_console: print "Iter " + str(id*self.batch_size) + ", Minibatch Loss= " + "{:.6f}".format(loss) #+ "{:.5f}".format(self.accuracy)
+                        if self.disp_console: print ("Iter " + str(id*self.batch_size) + ", Minibatch Loss= " + "{:.6f}".format(loss)) #+ "{:.5f}".format(self.accuracy)
                         total_loss += loss
                     id += 1
                     if self.disp_console: print(id)
 
                 #print "Optimization Finished!"
                 avg_loss = total_loss/id
-                print "Avg loss: " + sequence_name + ": " + str(avg_loss)
+                print ("Avg loss: " + sequence_name + ": " + str(avg_loss))
 
                 log_file.write(str("{:.3f}".format(avg_loss)) + '  ')
                 if i+1==num_videos:
@@ -329,4 +349,3 @@ def main(argvs):
 
 if __name__=='__main__':
         main(' ')
-

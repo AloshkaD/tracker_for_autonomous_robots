@@ -69,8 +69,8 @@ class ROLO_utils:
 
         batch_size = 128
 
-        x_path= "u03/yolo_output/"
-        y_path= "u03/rolo_gt"
+        x_path= "/home/a/SDC/defence/yolo_output"
+        y_path= "/home/a/SDC/defence/rolo_gt"
 
         def __init__(self,argvs = []):
             print("Utils init")
@@ -197,11 +197,11 @@ class ROLO_utils:
 
                 for i in range(batch_size):
                         pred_loc = pred_locs[i,:]
-                        #print("pred_loc[i]: ", pred_loc)
+                        print("pred_loc[i]: ", pred_loc)
                         gt = gts[i,:]
                         iou_ = self.iou(pred_loc, gt)
                         #ious.append(iou_)
-                        #print("iou_", iou_)
+                        print("iou_", iou_)
                         ious[i,:]= iou_
                 #ious= tf.reshape(ious, batch_size)
                 #print("ious: ", ious)
@@ -321,7 +321,7 @@ class ROLO_utils:
                 for path in paths_batch:
                         ct += 1
                         yolo_output = np.load(path)
-                        #print(yolo_output)
+                        print(yolo_output)
                         yolo_output= np.reshape(yolo_output, 4102)
                         yolo_output_batch.append(yolo_output)
                 yolo_output_batch= np.reshape(yolo_output_batch, [batch_size*num_steps, 4102])
